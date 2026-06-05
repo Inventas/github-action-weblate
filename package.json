@@ -1,0 +1,19 @@
+{
+  "name": "github-action-weblate",
+  "version": "1.0.0",
+  "description": "GitHub Actions for Weblate localization setup, upload, download, and PR sync workflows.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "lint": "node --check src/*.js setup-upload/index.js download/index.js test/*.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "github.com/Inventas/github-action-weblate"
+  },
+  "author": "Inventas",
+  "license": "MIT"
+}

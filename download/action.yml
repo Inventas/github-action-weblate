@@ -1,0 +1,63 @@
+name: "Weblate download"
+description: "Download Weblate localization files from a manifest and expose whether a PR should be created."
+author: "Inventas"
+branding:
+  icon: "download-cloud"
+  color: "blue"
+inputs:
+  weblate-url:
+    description: "Base URL of the Weblate instance, for example https://weblate.example.com."
+    required: true
+  api-token:
+    description: "Weblate API token. Pass this from secrets."
+    required: true
+  manifest:
+    description: "Path to the JSON localization manifest."
+    required: false
+    default: ".weblate-localization.json"
+  output-root:
+    description: "Directory where downloaded files are written."
+    required: false
+    default: "."
+  dry-run:
+    description: "Validate and print planned downloads without writing files."
+    required: false
+    default: "false"
+  lock:
+    description: "Lock each component while syncing to capture a consistent snapshot."
+    required: false
+    default: "false"
+  repository-operation:
+    description: "Repository operation before download: none, pull, file-scan, or file-sync. file-scan/file-sync are project-scoped."
+    required: false
+    default: "pull"
+  commit-before-download:
+    description: "Commit pending Weblate changes before downloading."
+    required: false
+    default: "true"
+  fail-on-merge-needed:
+    description: "Fail when Weblate reports needs_merge or merge_failure."
+    required: false
+    default: "true"
+  fail-on-unsupported-xcstrings:
+    description: "Deprecated no-op. Native xcstrings catalogs are supported when Weblate exposes file_format=xcstrings."
+    required: false
+    default: "false"
+  task-timeout-ms:
+    description: "Maximum time to wait for Weblate async tasks when task URLs are returned."
+    required: false
+    default: "300000"
+  task-poll-interval-ms:
+    description: "Polling interval for Weblate async tasks."
+    required: false
+    default: "3000"
+outputs:
+  changed:
+    description: "true when downloaded files changed the checkout."
+  files-downloaded:
+    description: "Number of files downloaded."
+  changed-files:
+    description: "Newline-separated changed manifest file paths when git is available."
+runs:
+  using: "node24"
+  main: "index.js"

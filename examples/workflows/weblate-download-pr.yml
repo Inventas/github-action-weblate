@@ -1,0 +1,39 @@
+name: Download Weblate translations
+
+on:
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: weblate
+        uses: Inventas/github-action-weblate/download@v1
+        with:
+          weblate-url: https://weblate.example.com
+          api-token: ${{ secrets.WEBLATE_TOKEN }}
+          manifest: .weblate-localization.json
+          lock: "true"
+          repository-operation: pull
+
+      - name: Create pull request
+        if: steps.weblate.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          add-paths: ${{ steps.weblate.outputs.changed-files }}
+          commit-message: "chore(l10n): sync Weblate translations"
+          title: "chore(l10n): sync Weblate translations"
+          body: |
+            Automated Weblate localization sync.
+
+            Changed files:
+            ${{ steps.weblate.outputs.changed-files }}
+          branch: chore/weblate-sync

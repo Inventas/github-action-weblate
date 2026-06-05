@@ -1,0 +1,27 @@
+name: Upload localization files to Weblate
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".weblate-localization.json"
+      - "android/**/res/values*/strings.xml"
+      - "ios/**/*.strings"
+      - "ios/**/*.stringsdict"
+      - "ios/**/*.xcstrings"
+
+permissions:
+  contents: read
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: Inventas/github-action-weblate/setup-upload@v1
+        with:
+          weblate-url: https://weblate.example.com
+          api-token: ${{ secrets.WEBLATE_TOKEN }}
+          manifest: .weblate-localization.json

@@ -1,0 +1,53 @@
+name: "Weblate setup and upload"
+description: "Create missing Weblate projects/components/languages and upload localization files from a manifest."
+author: "Inventas"
+branding:
+  icon: "upload-cloud"
+  color: "blue"
+inputs:
+  weblate-url:
+    description: "Base URL of the Weblate instance, for example https://weblate.example.com."
+    required: true
+  api-token:
+    description: "Weblate API token. Pass this from secrets."
+    required: true
+  manifest:
+    description: "Path to the JSON localization manifest."
+    required: false
+    default: ".weblate-localization.json"
+  dry-run:
+    description: "Validate against the API and print planned mutations without creating or uploading anything."
+    required: false
+    default: "false"
+  setup:
+    description: "Create missing projects, components, and translations."
+    required: false
+    default: "true"
+  upload:
+    description: "Upload files listed in the manifest."
+    required: false
+    default: "true"
+  task-timeout-ms:
+    description: "Maximum time to wait for Weblate async setup tasks."
+    required: false
+    default: "300000"
+  task-poll-interval-ms:
+    description: "Polling interval for Weblate async setup tasks."
+    required: false
+    default: "3000"
+  fail-on-unsupported-xcstrings:
+    description: "Deprecated no-op. Native xcstrings catalogs are supported when Weblate exposes file_format=xcstrings."
+    required: false
+    default: "false"
+outputs:
+  projects-created:
+    description: "Number of projects created."
+  components-created:
+    description: "Number of components created."
+  translations-created:
+    description: "Number of translation languages created."
+  files-uploaded:
+    description: "Number of files uploaded."
+runs:
+  using: "node24"
+  main: "index.js"

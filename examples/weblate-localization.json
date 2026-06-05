@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "defaults": {
+    "repo": "https://github.com/example/mobile.git",
+    "branch": "main",
+    "vcs": "git",
+    "upload": {
+      "method": "translate",
+      "conflicts": "ignore"
+    }
+  },
+  "projects": [
+    {
+      "slug": "mobile",
+      "name": "Mobile App",
+      "web": "https://github.com/example/mobile"
+    }
+  ],
+  "components": [
+    {
+      "project": "mobile",
+      "slug": "android-app",
+      "name": "Android App Strings",
+      "file_format": "aresource",
+      "filemask": "android/app/src/main/res/values-*/strings.xml",
+      "template": "android/app/src/main/res/values/strings.xml",
+      "translations": [
+        {
+          "language": "de",
+          "path": "android/app/src/main/res/values-de/strings.xml"
+        },
+        {
+          "language": "nl",
+          "path": "android/app/src/main/res/values-nl/strings.xml"
+        }
+      ]
+    },
+    {
+      "project": "mobile",
+      "slug": "ios-localizable",
+      "name": "iOS Localizable Strings",
+      "file_format": "strings",
+      "filemask": "ios/App/Resources/*.lproj/Localizable.strings",
+      "template": "ios/App/Resources/en.lproj/Localizable.strings",
+      "translations": [
+        {
+          "language": "de",
+          "path": "ios/App/Resources/de.lproj/Localizable.strings"
+        },
+        {
+          "language": "nl",
+          "path": "ios/App/Resources/nl.lproj/Localizable.strings"
+        }
+      ]
+    },
+    {
+      "project": "mobile",
+      "slug": "ios-plurals",
+      "name": "iOS Plural Strings",
+      "file_format": "stringsdict",
+      "filemask": "ios/App/Resources/*.lproj/Localizable.stringsdict",
+      "template": "ios/App/Resources/en.lproj/Localizable.stringsdict",
+      "translations": [
+        {
+          "language": "de",
+          "path": "ios/App/Resources/de.lproj/Localizable.stringsdict"
+        },
+        {
+          "language": "nl",
+          "path": "ios/App/Resources/nl.lproj/Localizable.stringsdict"
+        }
+      ]
+    },
+    {
+      "project": "mobile",
+      "slug": "ios-string-catalog",
+      "name": "iOS String Catalog",
+      "file_format": "xcstrings",
+      "filemask": "ios/App/Resources/Localizable.xcstrings",
+      "translations": [
+        {
+          "language": "de"
+        },
+        {
+          "language": "nl"
+        }
+      ]
+    }
+  ]
+}
