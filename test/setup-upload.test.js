@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { runSetupUploadAction } from "../src/setup-upload.js";
@@ -123,6 +123,50 @@ describe("setup-upload action", () => {
     });
 
     assert.deepEqual(calls, ["getComponent", "waitTask", "getComponent", "upload"]);
+  });
+
+  it("uploads empty translation files", async () => {
+    const workspace = await mkdtemp(path.join(tmpdir(), "weblate-setup-empty-"));
+    await mkdir(path.join(workspace, "Shared", "en.lproj"), { recursive: true });
+    await mkdir(path.join(workspace, "Shared", "bg.lproj"), { recursive: true });
+    await writeFile(path.join(workspace, "Shared", "en.lproj", "OneSecIntents.strings"), "\"Title\" = \"Open one sec\";\n");
+    await writeFile(path.join(workspace, "Shared", "bg.lproj", "OneSecIntents.strings"), "");
+    await writeFile(path.join(workspace, "manifest.json"), JSON.stringify({
+      version: 1,
+      projects: [{ slug: "mobile" }],
+      components: [{
+        project: "mobile",
+        slug: "ios-intents",
+        file_format: "strings",
+        filemask: "Shared/*.lproj/OneSecIntents.strings",
+        template: "Shared/en.lproj/OneSecIntents.strings",
+        translations: [{ language: "bg", path: "Shared/bg.lproj/OneSecIntents.strings" }]
+      }]
+    }));
+
+    const calls = [];
+    const outputFile = path.join(workspace, "outputs.txt");
+    const client = {
+      uploadTranslationFile: async (_project, _component, translation, absolutePath) => {
+        calls.push(["upload", translation.language, translation.path, path.basename(absolutePath)]);
+        return {};
+      }
+    };
+
+    await runSetupUploadAction({
+      workspace,
+      client,
+      env: {
+        "INPUT_WEBLATE_URL": "https://weblate.example.com",
+        "INPUT_API_TOKEN": "token",
+        "INPUT_MANIFEST": "manifest.json",
+        "INPUT_SETUP": "false",
+        GITHUB_OUTPUT: outputFile
+      }
+    });
+
+    assert.deepEqual(calls, [["upload", "bg", "Shared/bg.lproj/OneSecIntents.strings", "OneSecIntents.strings"]]);
+    assert.match(await readFile(outputFile, "utf8"), /files-uploaded<<__WEBLATE_OUTPUT__\n1/);
   });
 
   it("creates all xcstrings languages but uploads the shared catalog once", async () => {

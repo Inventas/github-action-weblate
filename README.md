@@ -69,6 +69,8 @@ Use `template` for the monolingual base/source file when the Weblate component f
 
 Each translation requires `language` and `path` for uploads/downloads. `file` is accepted as an alias for `path`. For `.xcstrings`, `path` is optional and defaults to the catalog `filemask`; all languages share that one catalog file.
 
+Upload validation requires translation paths to exist and point to regular files. Empty files are allowed, because some localization formats use zero-byte target files to represent an untranslated language.
+
 ## Setup And Upload
 
 ```yaml

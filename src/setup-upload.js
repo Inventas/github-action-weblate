@@ -189,9 +189,6 @@ async function validateUploadFiles(manifest, workspace) {
       if (!fileStat.isFile()) {
         throw new Error(`Upload path is not a file: ${translation.path}`);
       }
-      if (fileStat.size === 0) {
-        throw new Error(`Upload file is empty: ${translation.path}`);
-      }
     }
   }
 }
