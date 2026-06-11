@@ -202,7 +202,8 @@ describe("setup-upload action", () => {
       },
       createLocalFilesComponent: async (_project, component, bootstrap) => {
         assert.equal("template" in component, false);
-        assert.equal("new_base" in component, false);
+        assert.equal(component.new_base, "source.json");
+        assert.equal(component.new_lang, "none");
         calls.push([
           "createLocalFilesComponent",
           component.vcs,
@@ -247,6 +248,75 @@ describe("setup-upload action", () => {
       ["createTranslation", "de"],
       ["getTranslation", "de"],
       ["upload", "de", "de.json"]
+    ]);
+  });
+
+  it("honors explicit local-files new language settings", async () => {
+    const workspace = await mkdtemp(path.join(tmpdir(), "weblate-setup-local-files-custom-"));
+    await writeFile(path.join(workspace, "source.json"), "{\"hello\":\"Hello\"}\n");
+    await writeFile(path.join(workspace, "de.json"), "{\"hello\":\"Hallo\"}\n");
+    await writeFile(path.join(workspace, "manifest.json"), JSON.stringify({
+      version: 1,
+      projects: [{ slug: "mobile", name: "Mobile", web: "https://github.com/example/mobile" }],
+      components: [{
+        project: "mobile",
+        slug: "web",
+        mode: "local-files",
+        name: "Web",
+        docfile: "source.json",
+        new_base: "custom-source.json",
+        new_lang: "add",
+        file_format: "json",
+        filemask: "locale/*.json",
+        source_language: "en",
+        translations: [{ language: "de", path: "de.json" }]
+      }]
+    }));
+
+    const calls = [];
+    const client = {
+      getProject: async () => ({ slug: "mobile" }),
+      createProject: async () => {
+        throw new Error("project should exist");
+      },
+      getComponent: async () => {
+        calls.push(["getComponent"]);
+        return calls.some((call) => call[0] === "createLocalFilesComponent") ? { slug: "web" } : null;
+      },
+      createLocalFilesComponent: async (_project, component) => {
+        assert.equal("template" in component, false);
+        assert.equal(component.new_base, "custom-source.json");
+        assert.equal(component.new_lang, "add");
+        calls.push(["createLocalFilesComponent", component.new_base, component.new_lang]);
+        return {};
+      },
+      createComponent: async () => {
+        throw new Error("repo-backed create path should not be used");
+      },
+      getTranslation: async () => ({ language: { code: "de" } }),
+      createTranslation: async () => {
+        throw new Error("translation should already exist");
+      },
+      uploadTranslationFile: async () => {
+        throw new Error("upload should be disabled");
+      }
+    };
+
+    await runSetupUploadAction({
+      workspace,
+      client,
+      env: {
+        "INPUT_WEBLATE_URL": "https://weblate.example.com",
+        "INPUT_API_TOKEN": "token",
+        "INPUT_MANIFEST": "manifest.json",
+        "INPUT_UPLOAD": "false"
+      }
+    });
+
+    assert.deepEqual(calls, [
+      ["getComponent"],
+      ["createLocalFilesComponent", "custom-source.json", "add"],
+      ["getComponent"]
     ]);
   });
 

@@ -74,6 +74,7 @@ Use `template` for the monolingual base/source file when the Weblate component f
 
 Use `docfile` only for `local-files` setup. It names the source file that must be present in the local file set.
 For `local-files` components, the action automatically packages `docfile` plus the listed translation paths into a ZIP bootstrap.
+For Weblate ZIP component creation, the action also defaults `new_base` to `docfile` and `new_lang` to `"none"` unless the manifest overrides them.
 For bilingual formats such as `.strings`, `template` should be omitted in `local-files` mode.
 
 Each translation requires `language` and `path` for uploads/downloads. `file` is accepted as an alias for `path`. For `.xcstrings`, `path` is optional and defaults to the catalog `filemask`; all languages share that one catalog file.

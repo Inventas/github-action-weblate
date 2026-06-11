@@ -224,13 +224,13 @@ function componentPayload(component) {
     name: component.name,
     slug: component.slug,
     repo: component.repo,
-    template: localFilesComponent ? component.template : component.template ?? "",
-    new_base: localFilesComponent ? component.new_base : component.new_base ?? "",
+    template: localFilesComponent ? undefined : component.template ?? "",
+    new_base: localFilesComponent ? component.new_base ?? component.docfile : component.new_base ?? "",
     vcs: component.vcs,
     push: component.push,
     push_branch: component.push_branch,
     source_language: component.source_language,
-    new_lang: component.new_lang,
+    new_lang: localFilesComponent ? component.new_lang ?? "none" : component.new_lang,
     language_code_style: component.language_code_style,
     language_aliases: component.language_aliases,
     merge_style: component.merge_style,
@@ -242,7 +242,7 @@ function componentPayload(component) {
 
 function driftFields(component) {
   return isLocalFilesComponent(component)
-    ? ["file_format", "filemask", "template", "new_base", "source_language", "vcs"]
+    ? ["file_format", "filemask", "new_base", "new_lang", "source_language", "vcs"]
     : ["file_format", "filemask", "repo", "branch", "template", "new_base", "source_language", "vcs"];
 }
 
