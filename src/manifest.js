@@ -1,4 +1,11 @@
 import { readFile } from "node:fs/promises";
+import {
+  COMPONENT_MODE_LOCAL_FILES,
+  COMPONENT_MODE_REPOSITORY,
+  LOCAL_FILES_VCS,
+  isLocalFilesComponent,
+  normalizeComponentMode
+} from "./component-mode.js";
 import { normalizeWorkspacePath } from "./path-utils.js";
 import { isXcstringsComponent } from "./xcstrings.js";
 
@@ -54,9 +61,10 @@ function normalizeDefaults(defaults) {
   }
 
   return {
+    mode: normalizeComponentMode(defaults.mode, "Manifest defaults.mode") ?? COMPONENT_MODE_REPOSITORY,
     repo: optionalString(defaults.repo),
-    branch: optionalString(defaults.branch) ?? "main",
-    vcs: optionalString(defaults.vcs) ?? "git",
+    branch: optionalString(defaults.branch),
+    vcs: optionalString(defaults.vcs),
     upload: normalizeUploadDefaults(defaults.upload ?? {})
   };
 }
@@ -90,18 +98,24 @@ function normalizeComponents(components, defaults, workspace) {
       throw new Error(`Component at index ${index} must be an object.`);
     }
 
+    const mode = normalizeComponentMode(component.mode, `components[${index}].mode`) ?? defaults.mode;
+    const repo = optionalString(component.repo) ?? defaults.repo;
+    const branch = optionalString(component.branch) ?? defaults.branch;
+    const vcs = optionalString(component.vcs) ?? defaults.vcs;
     const normalized = compactObject({
+      mode,
       project: requiredString(component.project, `components[${index}].project`),
       slug: requiredString(component.slug, `components[${index}].slug`),
       name: optionalString(component.name),
-      repo: optionalString(component.repo) ?? defaults.repo,
-      branch: optionalString(component.branch) ?? defaults.branch,
-      vcs: optionalString(component.vcs) ?? defaults.vcs,
+      repo,
+      branch,
+      vcs,
       file_format: requiredString(component.file_format, `components[${index}].file_format`),
       file_format_params: normalizeObject(component.file_format_params, `components[${index}].file_format_params`),
       filemask: normalizeWorkspacePath(requiredString(component.filemask, `components[${index}].filemask`), workspace),
       template: optionalPath(component.template, workspace),
       new_base: optionalPath(component.new_base, workspace),
+      docfile: optionalPath(component.docfile, workspace),
       push: optionalString(component.push),
       push_branch: optionalString(component.push_branch),
       source_language: optionalString(component.source_language),
@@ -114,6 +128,8 @@ function normalizeComponents(components, defaults, workspace) {
       auto_lock_error: optionalBoolean(component.auto_lock_error)
     });
 
+    validateComponentModeConfiguration(normalized, index);
+    applyModeDefaults(normalized);
     validateFilemask(normalized, index);
     normalized.translations = normalizeTranslations(component.translations, defaults.upload, workspace, index);
     normalizeXcstringsTranslations(normalized, index);
@@ -187,6 +203,34 @@ function validateReferencedProjects(projects, components) {
     if (!projectSlugs.has(component.project)) {
       throw new Error(`Component ${component.slug} references missing project ${component.project}.`);
     }
+  }
+}
+
+function applyModeDefaults(component) {
+  if (isLocalFilesComponent(component)) {
+    component.mode = COMPONENT_MODE_LOCAL_FILES;
+    component.vcs = LOCAL_FILES_VCS;
+    delete component.repo;
+    delete component.branch;
+    return;
+  }
+
+  component.mode = COMPONENT_MODE_REPOSITORY;
+  component.branch ??= "main";
+  component.vcs ??= "git";
+}
+
+function validateComponentModeConfiguration(component, componentIndex) {
+  if (!isLocalFilesComponent(component)) {
+    return;
+  }
+
+  const forbidden = ["repo", "branch", "push", "push_branch", "merge_style", "push_on_commit", "commit_pending_age", "auto_lock_error"]
+    .filter((field) => component[field] !== undefined);
+  if (forbidden.length > 0) {
+    throw new Error(
+      `components[${componentIndex}] in local-files mode must not define repository fields: ${forbidden.join(", ")}.`
+    );
   }
 }
 

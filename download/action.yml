@@ -12,7 +12,7 @@ inputs:
     description: "Weblate API token. Pass this from secrets."
     required: true
   manifest:
-    description: "Path to the JSON localization manifest."
+    description: "Path to the JSON localization manifest. Supports repository and local-files component modes."
     required: false
     default: ".weblate-localization.json"
   output-root:
@@ -28,15 +28,15 @@ inputs:
     required: false
     default: "false"
   repository-operation:
-    description: "Repository operation before download: none, pull, file-scan, or file-sync. file-scan/file-sync are project-scoped."
+    description: "Repository operation before download: none, pull, file-scan, or file-sync. file-scan/file-sync are project-scoped. local-files components skip repository preparation."
     required: false
     default: "pull"
   commit-before-download:
-    description: "Commit pending Weblate changes before downloading."
+    description: "Commit pending Weblate changes before downloading for repository-backed components."
     required: false
     default: "true"
   fail-on-merge-needed:
-    description: "Fail when Weblate reports needs_merge or merge_failure."
+    description: "Fail when Weblate reports needs_merge or merge_failure for repository-backed components."
     required: false
     default: "true"
   fail-on-unsupported-xcstrings:

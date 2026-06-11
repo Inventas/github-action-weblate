@@ -74,6 +74,18 @@ export function createWeblateClient(options) {
       headers: jsonHeaders(),
       body: JSON.stringify(component)
     }),
+    createLocalFilesComponent: async (project, component, absoluteDocFile) => {
+      const form = new FormData();
+      const fileBuffer = await readFile(absoluteDocFile);
+
+      form.append("docfile", new Blob([fileBuffer]), basename(absoluteDocFile));
+      appendFormEntries(form, component);
+
+      return request(`/api/projects/${encodeSegment(project)}/components/`, {
+        method: "POST",
+        body: form
+      });
+    },
     getTranslation: (project, component, language) =>
       getOrNull(`/api/translations/${encodeSegment(project)}/${encodeSegment(component)}/${encodeSegment(language)}/`),
     createTranslation: (project, component, languageCode, fromComponent) => request(
@@ -190,4 +202,17 @@ function sleep(ms) {
 
 function compactObject(value) {
   return Object.fromEntries(Object.entries(value).filter(([, entryValue]) => entryValue !== undefined));
+}
+
+function appendFormEntries(form, values) {
+  for (const [key, value] of Object.entries(values)) {
+    if (value === undefined || key === "docfile") {
+      continue;
+    }
+    if (typeof value === "object" && value !== null) {
+      form.append(key, JSON.stringify(value));
+      continue;
+    }
+    form.append(key, String(value));
+  }
 }

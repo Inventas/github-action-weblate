@@ -169,6 +169,80 @@ describe("setup-upload action", () => {
     assert.match(await readFile(outputFile, "utf8"), /files-uploaded<<__WEBLATE_OUTPUT__\n1/);
   });
 
+  it("creates local-files components from a docfile bootstrap", async () => {
+    const workspace = await mkdtemp(path.join(tmpdir(), "weblate-setup-local-files-"));
+    await writeFile(path.join(workspace, "source.json"), "{\"hello\":\"Hello\"}\n");
+    await writeFile(path.join(workspace, "de.json"), "{\"hello\":\"Hallo\"}\n");
+    await writeFile(path.join(workspace, "manifest.json"), JSON.stringify({
+      version: 1,
+      projects: [{ slug: "mobile", name: "Mobile", web: "https://github.com/example/mobile" }],
+      components: [{
+        project: "mobile",
+        slug: "web",
+        mode: "local-files",
+        name: "Web",
+        docfile: "source.json",
+        file_format: "json",
+        filemask: "locale/*.json",
+        source_language: "en",
+        translations: [{ language: "de", path: "de.json" }]
+      }]
+    }));
+
+    const calls = [];
+    const createdTranslations = new Set();
+    const client = {
+      getProject: async () => ({ slug: "mobile" }),
+      createProject: async () => {
+        throw new Error("project should exist");
+      },
+      getComponent: async () => {
+        calls.push(["getComponent"]);
+        return calls.some((call) => call[0] === "createLocalFilesComponent") ? { slug: "web" } : null;
+      },
+      createLocalFilesComponent: async (_project, component, absoluteDocFile) => {
+        calls.push(["createLocalFilesComponent", component.vcs, component.docfile, path.basename(absoluteDocFile)]);
+        return {};
+      },
+      createComponent: async () => {
+        throw new Error("repo-backed create path should not be used");
+      },
+      getTranslation: async (_project, _component, language) => {
+        calls.push(["getTranslation", language]);
+        return createdTranslations.has(language) ? { language: { code: language } } : null;
+      },
+      createTranslation: async (_project, _component, language) => {
+        calls.push(["createTranslation", language]);
+        createdTranslations.add(language);
+        return {};
+      },
+      uploadTranslationFile: async (_project, _component, translation, absolutePath) => {
+        calls.push(["upload", translation.language, path.basename(absolutePath)]);
+        return {};
+      }
+    };
+
+    await runSetupUploadAction({
+      workspace,
+      client,
+      env: {
+        "INPUT_WEBLATE_URL": "https://weblate.example.com",
+        "INPUT_API_TOKEN": "token",
+        "INPUT_MANIFEST": "manifest.json"
+      }
+    });
+
+    assert.deepEqual(calls, [
+      ["getComponent"],
+      ["createLocalFilesComponent", "local", "source.json", "source.json"],
+      ["getComponent"],
+      ["getTranslation", "de"],
+      ["createTranslation", "de"],
+      ["getTranslation", "de"],
+      ["upload", "de", "de.json"]
+    ]);
+  });
+
   it("creates all xcstrings languages but uploads the shared catalog once", async () => {
     const workspace = await mkdtemp(path.join(tmpdir(), "weblate-setup-xcstrings-"));
     await writeFile(path.join(workspace, "Localizable.xcstrings"), JSON.stringify({

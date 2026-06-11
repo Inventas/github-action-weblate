@@ -136,6 +136,48 @@ describe("download action", () => {
     assert.equal(await readFile(path.join(workspace, "Localizable.xcstrings"), "utf8"), "{\"sourceLanguage\":\"en\",\"strings\":{}}");
     assert.deepEqual(calls.filter((call) => call[0] === "download"), [["download", "de"]]);
   });
+
+  it("downloads local-files components without repository API calls", async () => {
+    const workspace = await mkdtemp(path.join(tmpdir(), "weblate-download-local-files-"));
+    await writeFile(path.join(workspace, "manifest.json"), JSON.stringify({
+      version: 1,
+      projects: [{ slug: "mobile" }],
+      components: [{
+        project: "mobile",
+        slug: "web",
+        mode: "local-files",
+        name: "Web",
+        docfile: "source.json",
+        file_format: "json",
+        filemask: "locale/*.json",
+        translations: [{ language: "de", path: "locale/de.json" }]
+      }]
+    }));
+
+    const calls = [];
+    const outputFile = path.join(workspace, "outputs.txt");
+    const client = {
+      downloadTranslationFile: async (_project, _component, language) => {
+        calls.push(["download", language]);
+        return Buffer.from("Hallo");
+      }
+    };
+
+    await runDownloadAction({
+      workspace,
+      client,
+      env: {
+        "INPUT_WEBLATE_URL": "https://weblate.example.com",
+        "INPUT_API_TOKEN": "token",
+        "INPUT_MANIFEST": "manifest.json",
+        GITHUB_OUTPUT: outputFile
+      }
+    });
+
+    assert.equal(await readFile(path.join(workspace, "locale/de.json"), "utf8"), "Hallo");
+    assert.deepEqual(calls, [["download", "de"]]);
+    assert.match(await readFile(outputFile, "utf8"), /changed-files<<__WEBLATE_OUTPUT__\nlocale\/de\.json/);
+  });
 });
 
 async function makeDownloadWorkspace() {

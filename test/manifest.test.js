@@ -107,6 +107,48 @@ describe("manifest normalization", () => {
     assert.equal(normalized.components[0].translations[1].path, "ios/App/Localizable.xcstrings");
   });
 
+  it("supports local-files components without repo metadata", () => {
+    const manifest = structuredClone(baseManifest);
+    manifest.defaults = { mode: "local-files" };
+    delete manifest.components[0].repo;
+    delete manifest.components[0].name;
+    manifest.components[0] = {
+      project: "mobile",
+      slug: "ios-localizable",
+      mode: "local-files",
+      name: "iOS Localizable",
+      docfile: "app/src/main/res/values/strings.xml",
+      file_format: "aresource",
+      filemask: "app/src/main/res/values-*/strings.xml",
+      translations: [{ language: "de", path: "app/src/main/res/values-de/strings.xml" }]
+    };
+
+    const normalized = normalizeManifest(manifest);
+
+    assert.equal(normalized.components[0].mode, "local-files");
+    assert.equal(normalized.components[0].vcs, "local");
+    assert.equal(normalized.components[0].repo, undefined);
+    assert.equal(normalized.components[0].branch, undefined);
+    assert.equal(normalized.components[0].docfile, "app/src/main/res/values/strings.xml");
+  });
+
+  it("rejects repository fields for local-files components", () => {
+    const manifest = structuredClone(baseManifest);
+    manifest.components[0] = {
+      project: "mobile",
+      slug: "ios-localizable",
+      mode: "local-files",
+      name: "iOS Localizable",
+      repo: "https://github.com/example/mobile.git",
+      docfile: "app/src/main/res/values/strings.xml",
+      file_format: "aresource",
+      filemask: "app/src/main/res/values-*/strings.xml",
+      translations: [{ language: "de", path: "app/src/main/res/values-de/strings.xml" }]
+    };
+
+    assert.throws(() => normalizeManifest(manifest), /must not define repository fields/);
+  });
+
   it("rejects xcstrings file masks with language wildcards", () => {
     const manifest = structuredClone(baseManifest);
     manifest.components[0] = {
