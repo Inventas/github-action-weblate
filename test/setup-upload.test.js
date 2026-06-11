@@ -125,7 +125,7 @@ describe("setup-upload action", () => {
     assert.deepEqual(calls, ["getComponent", "waitTask", "getComponent", "upload"]);
   });
 
-  it("uploads empty translation files", async () => {
+  it("skips empty translation files", async () => {
     const workspace = await mkdtemp(path.join(tmpdir(), "weblate-setup-empty-"));
     await mkdir(path.join(workspace, "Shared", "en.lproj"), { recursive: true });
     await mkdir(path.join(workspace, "Shared", "bg.lproj"), { recursive: true });
@@ -165,8 +165,8 @@ describe("setup-upload action", () => {
       }
     });
 
-    assert.deepEqual(calls, [["upload", "bg", "Shared/bg.lproj/OneSecIntents.strings", "OneSecIntents.strings"]]);
-    assert.match(await readFile(outputFile, "utf8"), /files-uploaded<<__WEBLATE_OUTPUT__\n1/);
+    assert.deepEqual(calls, []);
+    assert.match(await readFile(outputFile, "utf8"), /files-uploaded<<__WEBLATE_OUTPUT__\n0/);
   });
 
   it("creates local-files components from a docfile bootstrap", async () => {

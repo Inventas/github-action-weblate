@@ -144,6 +144,11 @@ async function uploadFiles(client, manifest, inputs, stats, workspace) {
       }
 
       const absolutePath = resolveWorkspacePath(translation.path, workspace);
+      const fileStat = await stat(absolutePath);
+      if (fileStat.size === 0) {
+        warning(`Skipping empty upload file: ${translation.path} (${component.project}/${component.slug}/${translation.language})`);
+        continue;
+      }
       if (inputs.dryRun) {
         info(`Dry run: would upload ${translation.path} to ${component.project}/${component.slug}/${translation.language} using method=${translation.method}`);
         continue;

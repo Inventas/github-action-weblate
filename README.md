@@ -79,7 +79,7 @@ For bilingual formats such as `.strings`, `template` should be omitted in `local
 
 Each translation requires `language` and `path` for uploads/downloads. `file` is accepted as an alias for `path`. For `.xcstrings`, `path` is optional and defaults to the catalog `filemask`; all languages share that one catalog file.
 
-Upload validation requires translation paths to exist and point to regular files. Empty files are allowed, because some localization formats use zero-byte target files to represent an untranslated language.
+Upload validation requires translation paths to exist and point to regular files. Empty files are allowed, because some localization formats use zero-byte target files to represent an untranslated language. Zero-byte files are skipped during upload with a warning because Weblate rejects them as empty submissions.
 
 Repository fields such as `repo`, `branch`, `push`, and `push_branch` must not be used with `mode: "local-files"`.
 
