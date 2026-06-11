@@ -1,10 +1,12 @@
-import { stat } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { getBooleanInput, getInput, getIntegerInput, info, setOutput, warning } from "./action-io.js";
 import { isLocalFilesComponent } from "./component-mode.js";
+import { getLocalFilesBootstrap } from "./local-files.js";
 import { loadManifest } from "./manifest.js";
 import { resolveWorkspacePath } from "./path-utils.js";
 import { createWeblateClient } from "./weblate-client.js";
 import { catalogTranslations } from "./xcstrings.js";
+import { createStoredZip } from "./zip.js";
 
 export async function runSetupUploadAction(options = {}) {
   const env = options.env ?? process.env;
@@ -101,7 +103,7 @@ async function ensureComponents(client, manifest, inputs, stats, workspace) {
       ? await client.createLocalFilesComponent(
         component.project,
         componentPayload(component),
-        resolveWorkspacePath(component.docfile, workspace)
+        await buildLocalFilesBootstrap(component, workspace)
       )
       : await client.createComponent(component.project, componentPayload(component));
     await waitIfTaskReturned(client, result, inputs);
@@ -178,10 +180,12 @@ async function validateSetupFiles(manifest, workspace) {
       continue;
     }
 
-    const absolutePath = resolveWorkspacePath(component.docfile, workspace);
-    const fileStat = await stat(absolutePath);
-    if (!fileStat.isFile()) {
-      throw new Error(`Setup docfile is not a file: ${component.docfile}`);
+    for (const setupPath of localFilesBootstrapPaths(component)) {
+      const absolutePath = resolveWorkspacePath(setupPath, workspace);
+      const fileStat = await stat(absolutePath);
+      if (!fileStat.isFile()) {
+        throw new Error(`Setup bootstrap path is not a file: ${setupPath}`);
+      }
     }
   }
 }
@@ -240,6 +244,35 @@ function driftFields(component) {
   return isLocalFilesComponent(component)
     ? ["file_format", "filemask", "template", "new_base", "source_language", "vcs"]
     : ["file_format", "filemask", "repo", "branch", "template", "new_base", "source_language", "vcs"];
+}
+
+async function buildLocalFilesBootstrap(component, workspace) {
+  const bootstrap = getLocalFilesBootstrap(component);
+  if (bootstrap.kind === "docfile") {
+    return {
+      kind: "docfile",
+      absolutePath: resolveWorkspacePath(bootstrap.path, workspace)
+    };
+  }
+
+  const entries = [];
+  for (const entryPath of bootstrap.paths) {
+    entries.push({
+      name: entryPath,
+      data: await readFile(resolveWorkspacePath(entryPath, workspace))
+    });
+  }
+
+  return {
+    kind: "zipfile",
+    filename: `${component.slug}.zip`,
+    content: createStoredZip(entries)
+  };
+}
+
+function localFilesBootstrapPaths(component) {
+  const bootstrap = getLocalFilesBootstrap(component);
+  return bootstrap.kind === "docfile" ? [bootstrap.path] : bootstrap.paths;
 }
 
 async function waitIfTaskReturned(client, result, inputs) {

@@ -73,7 +73,9 @@ For normal per-language file formats, each `filemask` must contain exactly one `
 Use `template` for the monolingual base/source file when the Weblate component format needs one, for example Android `res/values/strings.xml` or repo-backed iOS `Resources/en.lproj/Localizable.strings`.
 
 Use `docfile` only for `local-files` setup. This is the bootstrap file uploaded when the component is first created.
-For bilingual formats such as `.strings`, `docfile` is usually enough in `local-files` mode and `template` should be omitted.
+For single-file components such as `.xcstrings`, the action sends `docfile` directly.
+For multi-file `local-files` components, the action automatically packages `docfile` plus the listed translation paths into a ZIP bootstrap.
+For bilingual formats such as `.strings`, `template` should be omitted in `local-files` mode.
 
 Each translation requires `language` and `path` for uploads/downloads. `file` is accepted as an alias for `path`. For `.xcstrings`, `path` is optional and defaults to the catalog `filemask`; all languages share that one catalog file.
 

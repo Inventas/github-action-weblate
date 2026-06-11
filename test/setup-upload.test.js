@@ -200,10 +200,15 @@ describe("setup-upload action", () => {
         calls.push(["getComponent"]);
         return calls.some((call) => call[0] === "createLocalFilesComponent") ? { slug: "web" } : null;
       },
-      createLocalFilesComponent: async (_project, component, absoluteDocFile) => {
+      createLocalFilesComponent: async (_project, component, bootstrap) => {
         assert.equal("template" in component, false);
         assert.equal("new_base" in component, false);
-        calls.push(["createLocalFilesComponent", component.vcs, component.docfile, path.basename(absoluteDocFile)]);
+        calls.push([
+          "createLocalFilesComponent",
+          component.vcs,
+          bootstrap.kind,
+          bootstrap.kind === "zipfile" ? bootstrap.filename : path.basename(bootstrap.absolutePath)
+        ]);
         return {};
       },
       createComponent: async () => {
@@ -236,7 +241,7 @@ describe("setup-upload action", () => {
 
     assert.deepEqual(calls, [
       ["getComponent"],
-      ["createLocalFilesComponent", "local", "source.json", "source.json"],
+      ["createLocalFilesComponent", "local", "zipfile", "web.zip"],
       ["getComponent"],
       ["getTranslation", "de"],
       ["createTranslation", "de"],
