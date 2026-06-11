@@ -248,13 +248,6 @@ function driftFields(component) {
 
 async function buildLocalFilesBootstrap(component, workspace) {
   const bootstrap = getLocalFilesBootstrap(component);
-  if (bootstrap.kind === "docfile") {
-    return {
-      kind: "docfile",
-      absolutePath: resolveWorkspacePath(bootstrap.path, workspace)
-    };
-  }
-
   const entries = [];
   for (const entryPath of bootstrap.paths) {
     entries.push({
@@ -271,8 +264,7 @@ async function buildLocalFilesBootstrap(component, workspace) {
 }
 
 function localFilesBootstrapPaths(component) {
-  const bootstrap = getLocalFilesBootstrap(component);
-  return bootstrap.kind === "docfile" ? [bootstrap.path] : bootstrap.paths;
+  return getLocalFilesBootstrap(component).paths;
 }
 
 async function waitIfTaskReturned(client, result, inputs) {

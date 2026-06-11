@@ -76,12 +76,7 @@ export function createWeblateClient(options) {
     }),
     createLocalFilesComponent: async (project, component, bootstrap) => {
       const form = new FormData();
-      if (bootstrap.kind === "docfile") {
-        const fileBuffer = await readFile(bootstrap.absolutePath);
-        form.append("docfile", new Blob([fileBuffer]), basename(bootstrap.absolutePath));
-      } else {
-        form.append("zipfile", new Blob([bootstrap.content]), bootstrap.filename);
-      }
+      form.append("zipfile", new Blob([bootstrap.content]), bootstrap.filename);
       appendFormEntries(form, component);
 
       return request(`/api/projects/${encodeSegment(project)}/components/`, {

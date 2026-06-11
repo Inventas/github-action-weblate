@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { getLocalFilesBootstrap } from "../src/local-files.js";
 
 describe("local-files bootstrap", () => {
-  it("uses docfile bootstrap for single-file components", () => {
+  it("uses zipfile bootstrap even for single-file components", () => {
     const bootstrap = getLocalFilesBootstrap({
       mode: "local-files",
       docfile: "Shared/Ressources/Localizable.xcstrings",
@@ -11,8 +11,8 @@ describe("local-files bootstrap", () => {
     });
 
     assert.deepEqual(bootstrap, {
-      kind: "docfile",
-      path: "Shared/Ressources/Localizable.xcstrings"
+      kind: "zipfile",
+      paths: ["Shared/Ressources/Localizable.xcstrings"]
     });
   });
 
