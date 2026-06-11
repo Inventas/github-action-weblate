@@ -1,5 +1,6 @@
 import { stat } from "node:fs/promises";
 import { getBooleanInput, getInput, getIntegerInput, info, setOutput, warning } from "./action-io.js";
+import { isLocalFilesComponent } from "./component-mode.js";
 import { loadManifest } from "./manifest.js";
 import { resolveWorkspacePath } from "./path-utils.js";
 import { createWeblateClient } from "./weblate-client.js";
@@ -27,6 +28,7 @@ export async function runSetupUploadAction(options = {}) {
 
   if (inputs.setup) {
     validateSetupManifest(manifest);
+    await validateSetupFiles(manifest, workspace);
   }
   if (inputs.upload) {
     await validateUploadFiles(manifest, workspace);
@@ -47,7 +49,7 @@ export async function runSetupUploadAction(options = {}) {
 
   if (inputs.setup) {
     await ensureProjects(client, manifest, inputs, stats);
-    await ensureComponents(client, manifest, inputs, stats);
+    await ensureComponents(client, manifest, inputs, stats, workspace);
     await ensureTranslations(client, manifest, inputs, stats);
   }
 
@@ -81,19 +83,11 @@ async function ensureProjects(client, manifest, inputs, stats) {
   }
 }
 
-async function ensureComponents(client, manifest, inputs, stats) {
+async function ensureComponents(client, manifest, inputs, stats, workspace) {
   for (const component of manifest.components) {
     const existing = await client.getComponent(component.project, component.slug);
     if (existing) {
-      warnOnDrift(`component ${component.project}/${component.slug}`, existing, component, [
-        "file_format",
-        "filemask",
-        "repo",
-        "branch",
-        "template",
-        "new_base",
-        "source_language"
-      ]);
+      warnOnDrift(`component ${component.project}/${component.slug}`, existing, component, driftFields(component));
       info(`Component exists: ${component.project}/${component.slug}`);
       continue;
     }
@@ -103,7 +97,13 @@ async function ensureComponents(client, manifest, inputs, stats) {
       continue;
     }
 
-    const result = await client.createComponent(component.project, componentPayload(component));
+    const result = isLocalFilesComponent(component)
+      ? await client.createLocalFilesComponent(
+        component.project,
+        componentPayload(component),
+        resolveWorkspacePath(component.docfile, workspace)
+      )
+      : await client.createComponent(component.project, componentPayload(component));
     await waitIfTaskReturned(client, result, inputs);
     await verifyCreatedComponent(client, component);
     stats.componentsCreated += 1;
@@ -163,9 +163,25 @@ function validateSetupManifest(manifest) {
   }
 
   for (const component of manifest.components) {
-    const missing = ["name", "repo", "branch", "vcs"].filter((field) => !component[field]);
+    const missing = isLocalFilesComponent(component)
+      ? ["name", "vcs", "docfile"].filter((field) => !component[field])
+      : ["name", "repo", "branch", "vcs"].filter((field) => !component[field]);
     if (missing.length > 0) {
       throw new Error(`Component ${component.project}/${component.slug} is missing setup fields: ${missing.join(", ")}`);
+    }
+  }
+}
+
+async function validateSetupFiles(manifest, workspace) {
+  for (const component of manifest.components) {
+    if (!isLocalFilesComponent(component)) {
+      continue;
+    }
+
+    const absolutePath = resolveWorkspacePath(component.docfile, workspace);
+    const fileStat = await stat(absolutePath);
+    if (!fileStat.isFile()) {
+      throw new Error(`Setup docfile is not a file: ${component.docfile}`);
     }
   }
 }
@@ -196,6 +212,7 @@ async function validateUploadFiles(manifest, workspace) {
 function componentPayload(component) {
   return compactObject({
     branch: component.branch,
+    docfile: component.docfile,
     file_format: component.file_format,
     file_format_params: component.file_format_params,
     filemask: component.filemask,
@@ -216,6 +233,12 @@ function componentPayload(component) {
     commit_pending_age: component.commit_pending_age,
     auto_lock_error: component.auto_lock_error
   });
+}
+
+function driftFields(component) {
+  return isLocalFilesComponent(component)
+    ? ["file_format", "filemask", "template", "new_base", "source_language", "vcs"]
+    : ["file_format", "filemask", "repo", "branch", "template", "new_base", "source_language", "vcs"];
 }
 
 async function waitIfTaskReturned(client, result, inputs) {

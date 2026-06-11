@@ -12,7 +12,7 @@ inputs:
     description: "Weblate API token. Pass this from secrets."
     required: true
   manifest:
-    description: "Path to the JSON localization manifest."
+    description: "Path to the JSON localization manifest. Supports repository and local-files component modes."
     required: false
     default: ".weblate-localization.json"
   dry-run:
@@ -20,7 +20,7 @@ inputs:
     required: false
     default: "false"
   setup:
-    description: "Create missing projects, components, and translations."
+    description: "Create missing projects, components, and translations. local-files components are bootstrapped from their manifest docfile."
     required: false
     default: "true"
   upload:

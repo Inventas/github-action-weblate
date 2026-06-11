@@ -12,8 +12,9 @@ The actions intentionally do not call Weblate `push`. GitHub Actions owns pull r
 You still need to configure these once outside the action:
 
 - A Weblate API token with permissions to create/manage projects, components, repository operations, languages, and uploads.
-- GitHub/Weblate repository access so Weblate can clone the repository.
 - A GitHub secret, for example `WEBLATE_TOKEN`.
+
+Repository-backed components also need GitHub/Weblate repository access so Weblate can clone the repository. `local-files` components do not.
 
 Native Apple String Catalog (`.xcstrings`) manifests require a Weblate deployment that exposes `file_format: "xcstrings"`.
 
@@ -25,6 +26,7 @@ The manifest is JSON and defaults to `.weblate-localization.json`. `version` sho
 {
   "version": 1,
   "defaults": {
+    "mode": "repository",
     "repo": "https://github.com/example/mobile.git",
     "branch": "main",
     "vcs": "git",
@@ -61,15 +63,22 @@ The manifest is JSON and defaults to `.weblate-localization.json`. `version` sho
 
 Required project fields for setup are `slug`, `name`, and `web`.
 
-Required component fields for setup are `project`, `slug`, `name`, `repo` or `defaults.repo`, `file_format`, `filemask`, and `translations`. `branch` defaults to `main`; `vcs` defaults to `git`.
+Components support two modes:
+
+- `repository` is the default. Weblate clones the repository itself. Setup requires `project`, `slug`, `name`, `repo` or `defaults.repo`, `file_format`, `filemask`, and `translations`. `branch` defaults to `main`; `vcs` defaults to `git`.
+- `local-files` keeps Weblate disconnected from GitHub. Setup requires `project`, `slug`, `name`, `mode: "local-files"`, `docfile`, `file_format`, `filemask`, and `translations`. The action creates a VCS-less Weblate component and bootstraps it from `docfile`.
 
 For normal per-language file formats, each `filemask` must contain exactly one `*` language placeholder. For native `.xcstrings` catalogs, set `file_format` to `xcstrings` and use the single catalog path as `filemask` without a `*`.
 
 Use `template` for the monolingual base/source file when the Weblate component format needs one, for example Android `res/values/strings.xml` or iOS `Resources/en.lproj/Localizable.strings`.
 
+Use `docfile` only for `local-files` setup. This is the bootstrap file uploaded when the component is first created.
+
 Each translation requires `language` and `path` for uploads/downloads. `file` is accepted as an alias for `path`. For `.xcstrings`, `path` is optional and defaults to the catalog `filemask`; all languages share that one catalog file.
 
 Upload validation requires translation paths to exist and point to regular files. Empty files are allowed, because some localization formats use zero-byte target files to represent an untranslated language.
+
+Repository fields such as `repo`, `branch`, `push`, and `push_branch` must not be used with `mode: "local-files"`.
 
 ## Setup And Upload
 
@@ -153,6 +162,8 @@ Download inputs:
 - `task-poll-interval-ms`: async Weblate task polling interval. Default `3000`.
 - `fail-on-unsupported-xcstrings`: deprecated no-op kept for old workflows.
 
+For `local-files` manifests, the action skips Weblate repository preparation automatically because those components have no remote VCS. Keeping `repository-operation: none` in workflows is still the clearest configuration.
+
 Outputs:
 
 - `changed`
@@ -168,6 +179,22 @@ Android:
   "file_format": "aresource",
   "filemask": "app/src/main/res/values-*/strings.xml",
   "template": "app/src/main/res/values/strings.xml"
+}
+```
+
+Local files:
+
+```json
+{
+  "mode": "local-files",
+  "name": "iOS Intents",
+  "docfile": "Shared/en.lproj/OneSecIntents.strings",
+  "file_format": "strings",
+  "filemask": "Shared/*.lproj/OneSecIntents.strings",
+  "template": "Shared/en.lproj/OneSecIntents.strings",
+  "translations": [
+    { "language": "de", "path": "Shared/de.lproj/OneSecIntents.strings" }
+  ]
 }
 ```
 

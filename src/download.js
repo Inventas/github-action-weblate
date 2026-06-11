@@ -1,6 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { getBooleanInput, getInput, getIntegerInput, info, setOutput, warning } from "./action-io.js";
+import { isRepositoryBackedComponent } from "./component-mode.js";
 import { getGitChangedFiles } from "./git.js";
 import { loadManifest } from "./manifest.js";
 import { resolveWorkspacePath } from "./path-utils.js";
@@ -37,6 +38,7 @@ export async function runDownloadAction(options = {}) {
     apiToken: inputs.apiToken,
     fetchImpl: options.fetchImpl
   });
+  const repositoryComponents = manifest.components.filter(isRepositoryBackedComponent);
 
   const lockedComponents = [];
   const changedByBytes = new Set();
@@ -47,9 +49,9 @@ export async function runDownloadAction(options = {}) {
       await lockComponents(client, manifest, lockedComponents);
     }
 
-    await assertRepositoryReady(client, manifest, inputs);
-    await runRepositoryPreparation(client, manifest, inputs);
-    await assertRepositoryReady(client, manifest, inputs);
+    await assertRepositoryReady(client, repositoryComponents, inputs);
+    await runRepositoryPreparation(client, manifest, repositoryComponents, inputs);
+    await assertRepositoryReady(client, repositoryComponents, inputs);
 
     for (const component of manifest.components) {
       for (const translation of catalogTranslations(component)) {
@@ -110,7 +112,14 @@ async function unlockComponents(client, lockedComponents) {
   }
 }
 
-async function runRepositoryPreparation(client, manifest, inputs) {
+async function runRepositoryPreparation(client, manifest, repositoryComponents, inputs) {
+  if (repositoryComponents.length === 0) {
+    if (inputs.repositoryOperation !== "none" || inputs.commitBeforeDownload) {
+      warning("Manifest uses only local-files components; skipping repository preparation.");
+    }
+    return;
+  }
+
   if (inputs.dryRun) {
     info(`Dry run: would run repository preparation operation ${inputs.repositoryOperation}`);
     return;
@@ -120,33 +129,33 @@ async function runRepositoryPreparation(client, manifest, inputs) {
     return;
   }
 
-  for (const component of manifest.components) {
+  for (const component of repositoryComponents) {
     if (inputs.commitBeforeDownload) {
       await waitIfTaskReturned(client, await client.runComponentRepositoryOperation(component.project, component.slug, "commit"), inputs);
     }
   }
 
   if (PROJECT_REPOSITORY_OPERATIONS.has(inputs.repositoryOperation)) {
-    const projectSlugs = new Set(manifest.projects.map((project) => project.slug));
+    const projectSlugs = new Set(repositoryComponents.map((component) => component.project));
     for (const project of projectSlugs) {
       await waitIfTaskReturned(client, await client.runProjectRepositoryOperation(project, inputs.repositoryOperation), inputs);
     }
     return;
   }
 
-  for (const component of manifest.components) {
+  for (const component of repositoryComponents) {
     if (inputs.repositoryOperation !== "none") {
       await waitIfTaskReturned(client, await client.runComponentRepositoryOperation(component.project, component.slug, inputs.repositoryOperation), inputs);
     }
   }
 }
 
-async function assertRepositoryReady(client, manifest, inputs) {
+async function assertRepositoryReady(client, repositoryComponents, inputs) {
   if (!inputs.failOnMergeNeeded) {
     return;
   }
 
-  for (const component of manifest.components) {
+  for (const component of repositoryComponents) {
     const status = await client.getComponentRepositoryStatus(component.project, component.slug);
     if (status?.needs_merge || status?.merge_failure) {
       throw new Error(`Weblate repository is not ready for ${component.project}/${component.slug}: needs_merge=${Boolean(status.needs_merge)}, merge_failure=${status.merge_failure ?? ""}`);
