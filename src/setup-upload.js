@@ -210,6 +210,7 @@ async function validateUploadFiles(manifest, workspace) {
 }
 
 function componentPayload(component) {
+  const localFilesComponent = isLocalFilesComponent(component);
   return compactObject({
     branch: component.branch,
     docfile: component.docfile,
@@ -219,8 +220,8 @@ function componentPayload(component) {
     name: component.name,
     slug: component.slug,
     repo: component.repo,
-    template: component.template ?? "",
-    new_base: component.new_base ?? "",
+    template: localFilesComponent ? component.template : component.template ?? "",
+    new_base: localFilesComponent ? component.new_base : component.new_base ?? "",
     vcs: component.vcs,
     push: component.push,
     push_branch: component.push_branch,

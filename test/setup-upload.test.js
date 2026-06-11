@@ -201,6 +201,8 @@ describe("setup-upload action", () => {
         return calls.some((call) => call[0] === "createLocalFilesComponent") ? { slug: "web" } : null;
       },
       createLocalFilesComponent: async (_project, component, absoluteDocFile) => {
+        assert.equal("template" in component, false);
+        assert.equal("new_base" in component, false);
         calls.push(["createLocalFilesComponent", component.vcs, component.docfile, path.basename(absoluteDocFile)]);
         return {};
       },
