@@ -132,12 +132,37 @@ async function ensureTranslations(client, manifest, inputs, stats) {
         continue;
       }
 
-      const result = await client.createTranslation(component.project, component.slug, translation.language);
+      const creation = await createTranslationOrDetectExisting(client, component, translation);
+      if (!creation.created) {
+        info(`Translation exists: ${component.project}/${component.slug}/${translation.language}`);
+        continue;
+      }
+
+      const result = creation.result;
       await waitIfTaskReturned(client, result, inputs);
       await verifyCreatedTranslation(client, component, translation);
       stats.translationsCreated += 1;
       info(`Added translation: ${component.project}/${component.slug}/${translation.language}`);
     }
+  }
+}
+
+async function createTranslationOrDetectExisting(client, component, translation) {
+  try {
+    return {
+      created: true,
+      result: await client.createTranslation(component.project, component.slug, translation.language)
+    };
+  } catch (error) {
+    const existing = await client.getTranslation(component.project, component.slug, translation.language);
+    if (existing) {
+      warning(
+        `Translation ${component.project}/${component.slug}/${translation.language} already exists after create failed; continuing. Original error: ${error.message}`
+      );
+      return { created: false };
+    }
+
+    throw error;
   }
 }
 
@@ -234,7 +259,7 @@ function componentPayload(component) {
     name: component.name,
     slug: component.slug,
     repo: component.repo,
-    template: localFilesComponent ? undefined : component.template ?? "",
+    template: component.template ?? (localFilesComponent ? undefined : ""),
     new_base: localFilesComponent ? component.new_base ?? component.docfile : component.new_base ?? "",
     vcs: component.vcs,
     push: component.push,
@@ -252,7 +277,7 @@ function componentPayload(component) {
 
 function driftFields(component) {
   return isLocalFilesComponent(component)
-    ? ["file_format", "filemask", "new_base", "new_lang", "source_language", "vcs"]
+    ? ["file_format", "filemask", "template", "new_base", "new_lang", "source_language", "vcs"]
     : ["file_format", "filemask", "repo", "branch", "template", "new_base", "source_language", "vcs"];
 }
 

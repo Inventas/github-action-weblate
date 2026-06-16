@@ -251,6 +251,145 @@ describe("setup-upload action", () => {
     ]);
   });
 
+  it("passes explicit local-files templates for monolingual formats", async () => {
+    const workspace = await mkdtemp(path.join(tmpdir(), "weblate-setup-local-files-template-"));
+    await mkdir(path.join(workspace, "values"), { recursive: true });
+    await mkdir(path.join(workspace, "values-de"), { recursive: true });
+    await writeFile(path.join(workspace, "values", "strings.xml"), "<resources><string name=\"hello\">Hello</string></resources>");
+    await writeFile(path.join(workspace, "values-de", "strings.xml"), "<resources><string name=\"hello\">Hallo</string></resources>");
+    await writeFile(path.join(workspace, "manifest.json"), JSON.stringify({
+      version: 1,
+      projects: [{ slug: "mobile", name: "Mobile", web: "https://github.com/example/mobile" }],
+      components: [{
+        project: "mobile",
+        slug: "android",
+        mode: "local-files",
+        name: "Android",
+        docfile: "values/strings.xml",
+        template: "values/strings.xml",
+        file_format: "aresource",
+        filemask: "values-*/strings.xml",
+        source_language: "en",
+        translations: [{ language: "de", path: "values-de/strings.xml" }]
+      }]
+    }));
+
+    const calls = [];
+    const client = {
+      getProject: async () => ({ slug: "mobile" }),
+      createProject: async () => {
+        throw new Error("project should exist");
+      },
+      getComponent: async () => {
+        calls.push(["getComponent"]);
+        return calls.some((call) => call[0] === "createLocalFilesComponent") ? { slug: "android" } : null;
+      },
+      createLocalFilesComponent: async (_project, component, bootstrap) => {
+        assert.equal(component.template, "values/strings.xml");
+        assert.equal(component.new_base, "values/strings.xml");
+        assert.equal(component.new_lang, "none");
+        calls.push(["createLocalFilesComponent", component.template, component.new_base, bootstrap.filename]);
+        return {};
+      },
+      createComponent: async () => {
+        throw new Error("repo-backed create path should not be used");
+      },
+      getTranslation: async () => ({ language: { code: "de" } }),
+      createTranslation: async () => {
+        throw new Error("translation should already exist");
+      },
+      uploadTranslationFile: async (_project, _component, translation, absolutePath) => {
+        calls.push(["upload", translation.language, path.basename(absolutePath)]);
+        return {};
+      }
+    };
+
+    await runSetupUploadAction({
+      workspace,
+      client,
+      env: {
+        "INPUT_WEBLATE_URL": "https://weblate.example.com",
+        "INPUT_API_TOKEN": "token",
+        "INPUT_MANIFEST": "manifest.json"
+      }
+    });
+
+    assert.deepEqual(calls, [
+      ["getComponent"],
+      ["createLocalFilesComponent", "values/strings.xml", "values/strings.xml", "android.zip"],
+      ["getComponent"],
+      ["upload", "de", "strings.xml"]
+    ]);
+  });
+
+  it("continues when a translation appears after create fails", async () => {
+    const workspace = await mkdtemp(path.join(tmpdir(), "weblate-setup-translation-race-"));
+    await writeFile(path.join(workspace, "source.json"), "{\"hello\":\"Hello\"}\n");
+    await writeFile(path.join(workspace, "ar.json"), "{\"hello\":\"Hello\"}\n");
+    await writeFile(path.join(workspace, "manifest.json"), JSON.stringify({
+      version: 1,
+      projects: [{ slug: "mobile", name: "Mobile", web: "https://github.com/example/mobile" }],
+      components: [{
+        project: "mobile",
+        slug: "web",
+        mode: "local-files",
+        name: "Web",
+        docfile: "source.json",
+        file_format: "json",
+        filemask: "locale/*.json",
+        source_language: "en",
+        translations: [{ language: "ar", path: "ar.json" }]
+      }]
+    }));
+
+    const calls = [];
+    const outputFile = path.join(workspace, "outputs.txt");
+    let translationLookupCount = 0;
+    const client = {
+      getProject: async () => ({ slug: "mobile" }),
+      createProject: async () => {
+        throw new Error("project should exist");
+      },
+      getComponent: async () => ({ slug: "web" }),
+      createComponent: async () => {
+        throw new Error("component should exist");
+      },
+      getTranslation: async (_project, _component, language) => {
+        calls.push(["getTranslation", language]);
+        translationLookupCount += 1;
+        return translationLookupCount > 1 ? { language: { code: language } } : null;
+      },
+      createTranslation: async (_project, _component, language) => {
+        calls.push(["createTranslation", language]);
+        throw new Error("Weblate API POST failed with 400: Could not add 'ar'!");
+      },
+      uploadTranslationFile: async (_project, _component, translation, absolutePath) => {
+        calls.push(["upload", translation.language, path.basename(absolutePath)]);
+        return {};
+      }
+    };
+
+    await runSetupUploadAction({
+      workspace,
+      client,
+      env: {
+        "INPUT_WEBLATE_URL": "https://weblate.example.com",
+        "INPUT_API_TOKEN": "token",
+        "INPUT_MANIFEST": "manifest.json",
+        GITHUB_OUTPUT: outputFile
+      }
+    });
+
+    assert.deepEqual(calls, [
+      ["getTranslation", "ar"],
+      ["createTranslation", "ar"],
+      ["getTranslation", "ar"],
+      ["upload", "ar", "ar.json"]
+    ]);
+    assert.match(await readFile(outputFile, "utf8"), /translations-created<<__WEBLATE_OUTPUT__\n0/);
+    assert.match(await readFile(outputFile, "utf8"), /files-uploaded<<__WEBLATE_OUTPUT__\n1/);
+  });
+
   it("honors explicit local-files new language settings", async () => {
     const workspace = await mkdtemp(path.join(tmpdir(), "weblate-setup-local-files-custom-"));
     await writeFile(path.join(workspace, "source.json"), "{\"hello\":\"Hello\"}\n");
