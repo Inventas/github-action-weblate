@@ -98,8 +98,8 @@ Useful inputs:
 - `dry-run`: validates and performs API lookups without mutating Weblate.
 - `setup`: create missing projects/components/translations. Default `true`.
 - `upload`: upload files. Default `true`.
-- `task-timeout-ms`: async Weblate task timeout. Default `300000`.
-- `task-poll-interval-ms`: async Weblate task polling interval. Default `3000`.
+- `task-timeout-ms`: async Weblate task timeout and transient repository-lock retry timeout. Default `300000`.
+- `task-poll-interval-ms`: async Weblate task polling interval and repository-lock retry interval. Default `3000`.
 - `fail-on-unsupported-xcstrings`: deprecated no-op kept for old workflows.
 
 Outputs:
@@ -161,8 +161,8 @@ Download inputs:
 - `fail-on-merge-needed`: abort on `needs_merge` or `merge_failure`. Default `true`.
 - `lock`: lock components during download and always unlock components this action locked. Default `false`.
 - `output-root`: directory where downloaded files are written. Default `.`.
-- `task-timeout-ms`: async Weblate task timeout. Default `300000`.
-- `task-poll-interval-ms`: async Weblate task polling interval. Default `3000`.
+- `task-timeout-ms`: async Weblate task timeout and transient repository-lock retry timeout. Default `300000`.
+- `task-poll-interval-ms`: async Weblate task polling interval and repository-lock retry interval. Default `3000`.
 - `fail-on-unsupported-xcstrings`: deprecated no-op kept for old workflows.
 
 For `local-files` manifests, the action skips Weblate repository preparation automatically because those components have no remote VCS. Keeping `repository-operation: none` in workflows is still the clearest configuration.

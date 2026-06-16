@@ -44,11 +44,11 @@ inputs:
     required: false
     default: "false"
   task-timeout-ms:
-    description: "Maximum time to wait for Weblate async tasks when task URLs are returned."
+    description: "Maximum time to wait for Weblate async tasks and transient repository locks."
     required: false
     default: "300000"
   task-poll-interval-ms:
-    description: "Polling interval for Weblate async tasks."
+    description: "Polling interval for Weblate async tasks and repository-lock retries."
     required: false
     default: "3000"
 outputs:

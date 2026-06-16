@@ -5,6 +5,10 @@ export function createWeblateClient(options) {
   const baseUrl = normalizeBaseUrl(options.baseUrl);
   const apiToken = options.apiToken;
   const fetchImpl = options.fetchImpl ?? globalThis.fetch;
+  const repositoryLockRetryTimeoutMs = options.repositoryLockRetryTimeoutMs ?? 300000;
+  const repositoryLockRetryPollIntervalMs = options.repositoryLockRetryPollIntervalMs ?? 3000;
+  const sleepImpl = options.sleepImpl ?? sleep;
+  const onRepositoryLockRetry = options.onRepositoryLockRetry ?? (() => {});
 
   if (!apiToken) {
     throw new Error("A Weblate API token is required.");
@@ -17,20 +21,12 @@ export function createWeblateClient(options) {
     const url = pathOrUrl.startsWith("http://") || pathOrUrl.startsWith("https://")
       ? pathOrUrl
       : `${baseUrl}${pathOrUrl}`;
-    const headers = {
-      Authorization: `Token ${apiToken}`,
-      ...(requestOptions.headers ?? {})
-    };
-
-    const response = await fetchImpl(url, {
-      method: requestOptions.method ?? "GET",
-      headers,
-      body: requestOptions.body
-    });
+    const method = requestOptions.method ?? "GET";
+    const response = await fetchWithRepositoryLockRetry(url, requestOptions);
 
     const expected = requestOptions.expected ?? [200, 201, 202, 204];
     if (!expected.includes(response.status)) {
-      throw new Error(`Weblate API ${requestOptions.method ?? "GET"} ${url} failed with ${response.status}: ${await safeText(response)}`);
+      throw new Error(formatRequestError(method, url, response.status, await safeText(response)));
     }
 
     if (response.status === 204 || requestOptions.parse === "none") {
@@ -45,20 +41,55 @@ export function createWeblateClient(options) {
 
   async function getOrNull(path) {
     const url = `${baseUrl}${path}`;
-    const response = await fetchImpl(url, {
-      headers: {
-        Authorization: `Token ${apiToken}`
-      }
-    });
+    const response = await fetchWithRepositoryLockRetry(url);
 
     if (response.status === 404) {
       return null;
     }
     if (!response.ok) {
-      throw new Error(`Weblate API GET ${url} failed with ${response.status}: ${await safeText(response)}`);
+      throw new Error(formatRequestError("GET", url, response.status, await safeText(response)));
     }
 
     return response.json();
+  }
+
+  async function fetchWithRepositoryLockRetry(url, requestOptions = {}) {
+    const method = requestOptions.method ?? "GET";
+    const headers = {
+      Authorization: `Token ${apiToken}`,
+      ...(requestOptions.headers ?? {})
+    };
+    const startedAt = Date.now();
+    let attempt = 0;
+
+    while (true) {
+      const response = await fetchImpl(url, {
+        method,
+        headers,
+        body: requestOptions.body
+      });
+
+      if (response.status !== 423) {
+        return response;
+      }
+
+      const responseText = await safeText(response);
+      const remainingMs = repositoryLockRetryTimeoutMs - (Date.now() - startedAt);
+      if (remainingMs <= 0) {
+        throw new Error(`Timed out waiting for Weblate repository lock after ${repositoryLockRetryTimeoutMs} ms. ${formatRequestError(method, url, response.status, responseText)}`);
+      }
+
+      attempt += 1;
+      const retryAfterMs = Math.min(repositoryLockRetryPollIntervalMs, remainingMs);
+      onRepositoryLockRetry({
+        attempt,
+        method,
+        retryAfterMs,
+        status: response.status,
+        url
+      });
+      await sleepImpl(retryAfterMs);
+    }
   }
 
   return {
@@ -160,7 +191,7 @@ export function createWeblateClient(options) {
           return task;
         }
 
-        await sleep(pollIntervalMs);
+        await sleepImpl(pollIntervalMs);
       }
 
       throw new Error(`Timed out waiting for Weblate task: ${taskUrl}`);
@@ -192,6 +223,10 @@ async function safeText(response) {
   } catch {
     return "<unable to read response body>";
   }
+}
+
+function formatRequestError(method, url, status, body) {
+  return `Weblate API ${method} ${url} failed with ${status}: ${body}`;
 }
 
 function sleep(ms) {

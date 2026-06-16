@@ -36,7 +36,12 @@ export async function runDownloadAction(options = {}) {
   const client = options.client ?? createWeblateClient({
     baseUrl: inputs.weblateUrl,
     apiToken: inputs.apiToken,
-    fetchImpl: options.fetchImpl
+    fetchImpl: options.fetchImpl,
+    repositoryLockRetryTimeoutMs: inputs.taskTimeoutMs,
+    repositoryLockRetryPollIntervalMs: inputs.taskPollIntervalMs,
+    onRepositoryLockRetry: ({ attempt, method, retryAfterMs, url }) => {
+      info(`Weblate repository is locked for ${method} ${url}; retrying in ${retryAfterMs} ms (attempt ${attempt}).`);
+    }
   });
   const repositoryComponents = manifest.components.filter(isRepositoryBackedComponent);
 

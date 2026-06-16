@@ -28,11 +28,11 @@ inputs:
     required: false
     default: "true"
   task-timeout-ms:
-    description: "Maximum time to wait for Weblate async setup tasks."
+    description: "Maximum time to wait for Weblate async setup tasks and transient repository locks."
     required: false
     default: "300000"
   task-poll-interval-ms:
-    description: "Polling interval for Weblate async setup tasks."
+    description: "Polling interval for Weblate async setup tasks and repository-lock retries."
     required: false
     default: "3000"
   fail-on-unsupported-xcstrings:
